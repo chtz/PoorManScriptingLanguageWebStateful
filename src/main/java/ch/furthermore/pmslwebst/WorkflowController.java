@@ -64,7 +64,7 @@ public class WorkflowController {
 	
 	@RequestMapping(path="/definitions/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
 	@ResponseBody
-	String createWorkflowInstance(@RequestBody Map<String,String> ignoredData, @PathVariable("definitionId") String definitionId) {
+	String createWorkflowInstance(@RequestBody Map<String,String> ignoredData /* FIXME do not ignore */, @PathVariable("definitionId") String definitionId) {
 		try {
 			String workflowDefinition = workflowDefinitionDAO.load(definitionId);
 			
