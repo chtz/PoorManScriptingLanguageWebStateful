@@ -1,0 +1,19 @@
+workflow simple
+	node start
+		transition to left
+	end
+	
+	state left
+		transition to done
+		
+		enter
+			left = "enter"
+		end
+	end
+	
+	state done
+		enter
+		  done = "enter"
+		end
+	end
+end
