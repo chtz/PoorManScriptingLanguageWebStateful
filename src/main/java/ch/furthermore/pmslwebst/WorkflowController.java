@@ -44,9 +44,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Samples
  * <pre>
- * export DEF_ID=`curl -s --data-binary @simple.pmsl -H'Content-Type:text/plain' https://pmw.furthermore.ch//definitions`
- * export WF_ID=`curl -s --data-binary '{}' -H'Content-Type:application/json' http://localhost:8080/definitions/$DEF_ID`
- * curl -s --data-binary '{"foo":"bar"}' -H'Content-Type:application/json' http://localhost:8080/instances/$WF_ID
+ * export DEF_ID=`curl -s --data-binary @simple.pmsl -H'Content-Type:text/plain' https://pmw.furthermore.ch/definitions`
+ * export WF_ID=`curl -s --data-binary '{}' -H'Content-Type:application/json' https://pmw.furthermore.ch/definitions/$DEF_ID`
+ * curl -s --data-binary '{"foo":"bar"}' -H'Content-Type:application/json' https://pmw.furthermore.ch/instances/$WF_ID
  * </pre>
  */
 @SuppressWarnings("deprecation")
