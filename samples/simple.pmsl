@@ -8,6 +8,8 @@ workflow simple
 		
 		enter
 			left = "enter"
+			
+			task = "foo,bar"
 		end
 	end
 	

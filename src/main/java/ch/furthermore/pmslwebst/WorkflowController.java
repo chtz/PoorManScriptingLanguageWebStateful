@@ -7,7 +7,14 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.StringTokenizer;
+import java.util.UUID;
+
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.ResponseHandler;
@@ -19,6 +26,8 @@ import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,7 +44,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 /**
  * Samples
  * <pre>
- * export DEF_ID=`curl -s --data-binary @simple.pmsl -H'Content-Type:text/plain' http://localhost:8080/definitions`
+ * export DEF_ID=`curl -s --data-binary @simple.pmsl -H'Content-Type:text/plain' https://pmw.furthermore.ch//definitions`
  * export WF_ID=`curl -s --data-binary '{}' -H'Content-Type:application/json' http://localhost:8080/definitions/$DEF_ID`
  * curl -s --data-binary '{"foo":"bar"}' -H'Content-Type:application/json' http://localhost:8080/instances/$WF_ID
  * </pre>
@@ -43,6 +52,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SuppressWarnings("deprecation")
 @Controller
 public class WorkflowController {
+	private final static Logger log = LoggerFactory.getLogger(WorkflowController.class);
 	private final static ObjectMapper om = new ObjectMapper();
 	
 	@Autowired
@@ -50,6 +60,9 @@ public class WorkflowController {
 	
 	@Autowired
 	private WorkflowInstanceDAO workflowInstanceDAO;
+
+	@Autowired
+	private HttpServletRequest request;
 	
 	@RequestMapping(path="/definitions", method=RequestMethod.POST, consumes="text/plain", produces="text/plain")
 	@ResponseBody
@@ -70,11 +83,68 @@ public class WorkflowController {
 			
 			String workflowDefAndState = post("https://pmsl.furthermore.ch/workflow", "application/json", "text/plain", workflowDefinition);
 
-			return workflowInstanceDAO.insert(null, workflowDefAndState);
+			final String instanceId = UUID.randomUUID().toString();
+			
+			workflowDefAndState = modifyToken(workflowDefAndState, new TokenModifier() {
+				@Override
+				public void modify(SerializedToken token) {
+					for (SerializedToken child : token.getChildren()) {
+						modify(child);
+					}
+					
+					if (token.getVars().containsKey("task")) {
+						List<Map<String,Object>> fields = new LinkedList<>();
+						for (StringTokenizer st = new StringTokenizer((String) token.getVars().get("task"), ","); st.hasMoreTokens(); ) {
+							String fieldName = st.nextToken();
+							
+							Map<String,Object> field = new HashMap<>();
+							field.put("name", fieldName);
+							field.put("label", fieldName);
+							field.put("value", "");
+							field.put("type", "INPUT");
+							
+							fields.add(field);
+						}
+						
+						Map<String,Object> task = new HashMap<>();
+						task.put("callbackUrl", serverUrlPrefix() + "instances/" + instanceId);
+						task.put("fields", fields);
+						
+						Map<String,Object> createTaskRequest = new HashMap<>();
+						createTaskRequest.put("task", task);
+						
+						try {
+							@SuppressWarnings("unchecked")
+							Map<String,Object> result = (Map<String,Object>) om.readValue(
+									post("https://pmt.furthermore.ch/tasks", "application/json", "application/json", 
+											om.writeValueAsString(createTaskRequest)), Map.class);
+							token.getVars().remove("task");
+							token.getVars().put("taskURL", "https://pmt.furthermore.ch/pending/" + result.get("taskId"));
+						} catch (Exception e) {
+							throw new RuntimeException(e);
+						}
+					}
+				}
+			});
+			
+			return workflowInstanceDAO.insert(instanceId, workflowDefAndState);
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	private String serverUrlPrefix() {
+		StringBuilder dashboardUrlPrefix = new StringBuilder();
+		dashboardUrlPrefix.append(request.getScheme());
+		dashboardUrlPrefix.append("://");
+		dashboardUrlPrefix.append(request.getServerName());
+		dashboardUrlPrefix.append(":");
+		dashboardUrlPrefix.append(request.getServerPort());
+		dashboardUrlPrefix.append(request.getContextPath());
+		dashboardUrlPrefix.append("/");
+		
+		return dashboardUrlPrefix.toString();
 	}
 	
 	@RequestMapping(path="/instances/{workflowId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
@@ -114,7 +184,7 @@ public class WorkflowController {
                 .setHostnameVerifier(new AllowAllHostnameVerifier())
                 .setSSLContext(new SSLContextBuilder().loadTrustMaterial(null, new TrustStrategy() {
                     public boolean isTrusted(X509Certificate[] arg0, String arg1) throws CertificateException {
-                        return true;
+                        return true; //FIXME temporary work-around for let's encrypt certs :(
                     }
                 }).build())
                 .build();
@@ -126,7 +196,11 @@ public class WorkflowController {
 	        
 	        ResponseHandler<String> responseHandler = new BasicResponseHandler();
 	        
-	        return httpClient.execute(httpPost, responseHandler);
+	        String result = httpClient.execute(httpPost, responseHandler);
+	        
+	        log.info("HTTP POST '{}' to {} => '{}'", data, url, result); //FIXME debug log
+	        
+			return result;
 	    } finally {
 	    	httpClient.close();
 	    }
