@@ -1,13 +1,13 @@
 package ch.furthermore.pmslwebst;
 
-import java.io.IOException;
-
-import javax.script.ScriptException;
+import java.util.Map;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
@@ -27,8 +27,16 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class Application {
 	@RequestMapping("/")
 	@ResponseBody
-	String home() throws NoSuchMethodException, IOException, ScriptException {
+	String home() {
 		return "nothing to see here";
+	}
+	
+	@RequestMapping(path="/info", method=RequestMethod.POST, consumes="application/json", produces="application/json")
+	@ResponseBody
+	Map<String,Object> info(@RequestBody Map<String,Object> data) {
+		data.put("message", "nothing to see here");
+		
+		return data;
 	}
 	
 	public static void main(String[] args) throws Exception {
