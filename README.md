@@ -55,4 +55,6 @@ echo Workflow instance signaled: $WF_ID with email: $1
 
 ## Test execution
 
+```
 ./concat.sh your@email.com
+```
