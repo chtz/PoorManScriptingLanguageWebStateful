@@ -7,6 +7,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -85,52 +86,7 @@ public class WorkflowController {
 
 			final String instanceId = UUID.randomUUID().toString();
 			
-			workflowDefAndState = modifyToken(workflowDefAndState, new TokenModifier() {
-				@Override
-				public void modify(SerializedToken token) {
-					for (SerializedToken child : token.getChildren()) {
-						modify(child);
-					}
-					
-					if (token.getVars().containsKey("task")) {
-						List<Map<String,Object>> fields = new LinkedList<>();
-						for (StringTokenizer st = new StringTokenizer((String) token.getVars().get("task"), ","); st.hasMoreTokens(); ) {
-							String fieldName = st.nextToken();
-							
-							Map<String,Object> field = new HashMap<>();
-							field.put("name", fieldName);
-							field.put("label", fieldName);
-							field.put("value", "");
-							field.put("type", "INPUT");
-							
-							fields.add(field);
-						}
-						
-						Map<String,Object> task = new HashMap<>();
-						task.put("callbackUrl", serverUrlPrefix() + "instances/" + instanceId);
-						task.put("fields", fields);
-						
-						if (token.getVars().containsKey("email")) {
-							task.put("email", token.getVars().get("email"));
-						}
-						
-						Map<String,Object> createTaskRequest = new HashMap<>();
-						createTaskRequest.put("task", task);
-						
-						try {
-							@SuppressWarnings("unchecked")
-							Map<String,Object> result = (Map<String,Object>) om.readValue(
-									post("https://pmt.furthermore.ch/tasks", "application/json", "application/json", 
-											om.writeValueAsString(createTaskRequest)), Map.class);
-							token.getVars().remove("task");
-							token.getVars().remove("mail");
-							token.getVars().put("taskURL", "https://pmt.furthermore.ch/pending/" + result.get("taskId"));
-						} catch (Exception e) {
-							throw new RuntimeException(e);
-						}
-					}
-				}
-			});
+			workflowDefAndState = processTasks(workflowDefAndState, instanceId);
 			
 			return workflowInstanceDAO.insert(instanceId, workflowDefAndState);
 		}
@@ -138,15 +94,101 @@ public class WorkflowController {
 			throw new RuntimeException(e);
 		}
 	}
+
+	private String processTasks(String workflowDefAndState, final String instanceId)
+			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException 
+	{
+		return modifyToken(workflowDefAndState, new TokenModifier() {
+			@Override
+			public void modify(SerializedToken token) {
+				for (SerializedToken child : token.getChildren()) {
+					modify(child);
+				}
+				
+				if (token.getVars().containsKey("task")) {
+					List<Map<String,Object>> fields = new LinkedList<>();
+					for (StringTokenizer st = new StringTokenizer((String) token.getVars().get("task"), ","); st.hasMoreTokens(); ) {
+						String fieldName = st.nextToken();
+						
+						Map<String,Object> field = new HashMap<>();
+						field.put("name", fieldName);
+						field.put("label", fieldName);
+						field.put("value", token.getVars().containsKey(fieldName) 
+								? "" + token.getVars().get(fieldName) 
+								: "");
+						field.put("type", "INPUT");
+						
+						fields.add(field);
+					}
+					
+					Map<String,Object> task = new HashMap<>();
+					task.put("callbackUrl", serverUrlPrefix() + "instances/" + instanceId);
+					task.put("fields", fields);
+					
+					if (token.getVars().containsKey("email")) {
+						task.put("email", token.getVars().get("email"));
+					}
+					
+					Map<String,Object> createTaskRequest = new HashMap<>();
+					createTaskRequest.put("task", task);
+					
+					try {
+						@SuppressWarnings("unchecked")
+						Map<String,Object> result = (Map<String,Object>) om.readValue(
+								post("https://pmt.furthermore.ch/tasks", "application/json", "application/json", 
+										om.writeValueAsString(createTaskRequest)), Map.class);
+						token.getVars().remove("task");
+						token.getVars().remove("mail");
+						token.getVars().put("taskURL", "https://pmt.furthermore.ch/pending/" + result.get("taskId"));
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}
+		});
+	}
 	
 	private String serverUrlPrefix() {
+		/*
+		 * Header x-forwarded-proto='https'
+		 * Header x-forwarded-port='443'
+		 * Header x-forwarded-host='pmt.furthermore.ch'
+		 */
+		for (Enumeration<String> e = request.getHeaderNames(); e.hasMoreElements(); ) {
+			String name = e.nextElement();
+			
+			log.info("Header {}='{}'", name, request.getHeader(name)); //TODO DEBUG log
+		}
+		
 		StringBuilder dashboardUrlPrefix = new StringBuilder();
-		dashboardUrlPrefix.append(request.getScheme()); //FIXME is not https behind apache
+		
+		if (request.getHeader("x-forwarded-proto") != null) {
+			dashboardUrlPrefix.append(request.getHeader("x-forwarded-proto"));
+		}
+		else {
+			dashboardUrlPrefix.append(request.getScheme()); 
+		}
+		
 		dashboardUrlPrefix.append("://");
-		dashboardUrlPrefix.append(request.getServerName());
+		
+		if (request.getHeader("x-forwarded-host") != null) {
+			dashboardUrlPrefix.append(request.getHeader("x-forwarded-host"));
+		}
+		else {
+			dashboardUrlPrefix.append(request.getServerName());
+		}
+		
 		dashboardUrlPrefix.append(":");
-		dashboardUrlPrefix.append(request.getServerPort());
+		
+		if (request.getHeader("x-forwarded-port") != null) {
+			dashboardUrlPrefix.append(request.getHeader("x-forwarded-port"));
+		}
+		else {
+			dashboardUrlPrefix.append(request.getServerPort());
+		}
+		
 		dashboardUrlPrefix.append(request.getContextPath());
+		
 		dashboardUrlPrefix.append("/");
 		
 		return dashboardUrlPrefix.toString();
@@ -161,6 +203,8 @@ public class WorkflowController {
 			workflowDefAndState = addKeyValuePairsToRootToken(data, workflowDefAndState);
 			
 			workflowDefAndState = post("https://pmsl.furthermore.ch/instance", "application/json", "application/json", workflowDefAndState);
+			
+			workflowDefAndState = processTasks(workflowDefAndState, workflowId);
 			
 			workflowInstanceDAO.insert(workflowId, workflowDefAndState);
 			
