@@ -1,0 +1,30 @@
+workflow concat
+	node start
+		transition to prep
+	end
+	
+	state prep
+		transition to task1
+	end
+	
+	state task1
+		transition to task2
+		
+		enter
+			task = "prefix,suffix"
+		end
+	end
+	
+	state task2
+		transition to done
+		
+		enter
+			message = "Here is your result"
+			concat = prefix + " " + suffix
+			task = "message,concat"
+		end
+	end
+	
+	node done
+	end
+end

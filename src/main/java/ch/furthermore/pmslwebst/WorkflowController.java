@@ -138,7 +138,6 @@ public class WorkflowController {
 								post("https://pmt.furthermore.ch/tasks", "application/json", "application/json", 
 										om.writeValueAsString(createTaskRequest)), Map.class);
 						token.getVars().remove("task");
-						token.getVars().remove("mail");
 						token.getVars().put("taskURL", "https://pmt.furthermore.ch/pending/" + result.get("taskId"));
 					} catch (Exception e) {
 						throw new RuntimeException(e);
