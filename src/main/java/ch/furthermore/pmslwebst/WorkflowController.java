@@ -110,6 +110,10 @@ public class WorkflowController {
 						task.put("callbackUrl", serverUrlPrefix() + "instances/" + instanceId);
 						task.put("fields", fields);
 						
+						if (token.getVars().containsKey("email")) {
+							task.put("email", token.getVars().get("email"));
+						}
+						
 						Map<String,Object> createTaskRequest = new HashMap<>();
 						createTaskRequest.put("task", task);
 						
@@ -119,6 +123,7 @@ public class WorkflowController {
 									post("https://pmt.furthermore.ch/tasks", "application/json", "application/json", 
 											om.writeValueAsString(createTaskRequest)), Map.class);
 							token.getVars().remove("task");
+							token.getVars().remove("mail");
 							token.getVars().put("taskURL", "https://pmt.furthermore.ch/pending/" + result.get("taskId"));
 						} catch (Exception e) {
 							throw new RuntimeException(e);
@@ -136,7 +141,7 @@ public class WorkflowController {
 	
 	private String serverUrlPrefix() {
 		StringBuilder dashboardUrlPrefix = new StringBuilder();
-		dashboardUrlPrefix.append(request.getScheme());
+		dashboardUrlPrefix.append(request.getScheme()); //FIXME is not https behind apache
 		dashboardUrlPrefix.append("://");
 		dashboardUrlPrefix.append(request.getServerName());
 		dashboardUrlPrefix.append(":");
