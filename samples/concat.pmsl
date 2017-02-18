@@ -4,7 +4,19 @@ workflow concat
 	end
 	
 	state prep
+		transition to testpost
+	end
+	
+	state testpost
 		transition to task1
+		
+		enter
+			post = "https://pmw.furthermore.ch/info"
+		end
+		
+		leave
+			prefix = message
+		end
 	end
 	
 	state task1
