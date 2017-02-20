@@ -79,26 +79,13 @@ public class WorkflowController {
 	
 	@RequestMapping(path="/definitions/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
 	@ResponseBody
-	String createWorkflowInstance(@RequestBody Map<String,String> ignoredData /* FIXME do not ignore */, @PathVariable("definitionId") String definitionId) {
+	String createWorkflowInstance(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
 		try {
 			String workflowDefinition = workflowDefinitionDAO.load(definitionId);
 			
-			String workflowDefAndState = post("https://pmsl.furthermore.ch/workflow", "application/json", "text/plain", workflowDefinition);
+			String workflowDefAndState = post("https://pmsl.furthermore.ch/workflow?autoStart=false", "application/json", "text/plain", workflowDefinition);
 
-			final String instanceId = UUID.randomUUID().toString();
-			
-			workflowDefAndState = processTasks(workflowDefAndState, instanceId);
-			
-			List<String> instanceIdSignals = new LinkedList<>();
-			workflowDefAndState = processHttpPostRequests(workflowDefAndState, instanceId, instanceIdSignals);
-			
-			workflowInstanceDAO.insert(instanceId, workflowDefAndState);
-			
-			if (!instanceIdSignals.isEmpty()) {
-				signalWorkflow(new HashMap<String,String>(), instanceId);
-			}
-			
-			return instanceId;
+			return signal(data, UUID.randomUUID().toString(), workflowDefAndState);
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
@@ -111,26 +98,33 @@ public class WorkflowController {
 		try {
 			String workflowDefAndState = workflowInstanceDAO.load(workflowId);
 
-			workflowDefAndState = addKeyValuePairsToRootToken(data, workflowDefAndState);
-			
-			workflowDefAndState = post("https://pmsl.furthermore.ch/instance", "application/json", "application/json", workflowDefAndState);
-			
-			workflowDefAndState = processTasks(workflowDefAndState, workflowId);
-			
-			List<String> instanceIdSignals = new LinkedList<>();
-			workflowDefAndState = processHttpPostRequests(workflowDefAndState, workflowId, instanceIdSignals);
-			
-			workflowInstanceDAO.insert(workflowId, workflowDefAndState);
-			
-			if (!instanceIdSignals.isEmpty()) {
-				signalWorkflow(new HashMap<String,String>(), workflowId);
-			}
-			
-			return workflowId;
+			return signal(data, workflowId, workflowDefAndState);
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	private String signal(Map<String, String> data, String workflowId, String workflowDefAndState)
+			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException,
+			KeyManagementException, NoSuchAlgorithmException, KeyStoreException, ClientProtocolException 
+	{
+		workflowDefAndState = addKeyValuePairsToRootToken(data, workflowDefAndState);
+		
+		workflowDefAndState = post("https://pmsl.furthermore.ch/instance", "application/json", "application/json", workflowDefAndState);
+		
+		workflowDefAndState = processTasks(workflowDefAndState, workflowId);
+		
+		List<String> instanceIdSignals = new LinkedList<>();
+		workflowDefAndState = processHttpPostRequests(workflowDefAndState, workflowId, instanceIdSignals);
+		
+		workflowInstanceDAO.insert(workflowId, workflowDefAndState);
+		
+		if (!instanceIdSignals.isEmpty()) {
+			signal(new HashMap<String,String>(), workflowId, workflowDefAndState);
+		}
+		
+		return workflowId;
 	}
 
 	private String processHttpPostRequests(String workflowDefAndState, final String instanceId, final List<String> instanceIdSignals)
