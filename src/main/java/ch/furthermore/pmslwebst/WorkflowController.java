@@ -85,7 +85,7 @@ public class WorkflowController {
 			
 			String workflowDefAndState = post("https://pmsl.furthermore.ch/workflow?autoStart=false", "application/json", "text/plain", workflowDefinition);
 
-			return signal(data, UUID.randomUUID().toString(), workflowDefAndState);
+			return signal(data, UUID.randomUUID().toString(), null, workflowDefAndState);
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
@@ -98,46 +98,94 @@ public class WorkflowController {
 		try {
 			String workflowDefAndState = workflowInstanceDAO.load(workflowId);
 
-			return signal(data, workflowId, workflowDefAndState);
+			return signal(data, workflowId, null, workflowDefAndState);
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
+	
+	@RequestMapping(path="/tokens/{workflowId}/{instanceId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
+	@ResponseBody
+	String signalToken(@RequestBody Map<String,String> data, @PathVariable("workflowId") String workflowId, @PathVariable("instanceId") String instanceId) {
+		try {
+			String workflowDefAndState = workflowInstanceDAO.load(workflowId);
 
-	private String signal(Map<String, String> data, String workflowId, String workflowDefAndState)
+			return signal(data, workflowId, instanceId, workflowDefAndState);
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
+	private String signal(Map<String, String> data, String workflowId, String optionalTokenId, String workflowDefAndState)
 			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException,
 			KeyManagementException, NoSuchAlgorithmException, KeyStoreException, ClientProtocolException 
 	{
-		workflowDefAndState = addKeyValuePairsToRootToken(data, workflowDefAndState);
+		workflowDefAndState = addKeyValuePairsToToken(data, workflowDefAndState, optionalTokenId);
 		
-		workflowDefAndState = post("https://pmsl.furthermore.ch/instance", "application/json", "application/json", workflowDefAndState);
+		workflowDefAndState = post("https://pmsl.furthermore.ch/instance" + (optionalTokenId == null ? "" : "/" + optionalTokenId), 
+				"application/json", "application/json", workflowDefAndState);
 		
 		workflowDefAndState = processTasks(workflowDefAndState, workflowId);
 		
-		List<String> instanceIdSignals = new LinkedList<>();
+		LinkedList<InstanceToken> instanceIdSignals = new LinkedList<>();
 		workflowDefAndState = processHttpPostRequests(workflowDefAndState, workflowId, instanceIdSignals);
 		
 		workflowInstanceDAO.insert(workflowId, workflowDefAndState);
 		
 		if (!instanceIdSignals.isEmpty()) {
-			signal(new HashMap<String,String>(), workflowId, workflowDefAndState);
+			InstanceToken signal = instanceIdSignals.removeFirst();
+			
+			signal(new HashMap<String,String>(), signal.instanceId, signal.tokenId, workflowDefAndState);
 		}
 		
 		return workflowId;
 	}
+	
+	static class InstanceToken {
+		public final String instanceId;
+		public final String tokenId;
+		
+		public InstanceToken(String instanceId, String tokenId) {
+			this.instanceId = instanceId;
+			this.tokenId = tokenId;
+		}
+	}
+	
+	private String addKeyValuePairsToToken(final Map<String, String> keyValuePairs, String workflowDefAndState, final String optionalTokenId)
+			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException //FIXME somewhat hacky ;-)
+	{
+		return modifyToken(workflowDefAndState, new TokenModifier() {
+			@Override
+			public void modify(SerializedToken token) {
+				if (optionalTokenId == null || optionalTokenId.equals(token.getVars().get("id"))) {
+					token.getVars().putAll(keyValuePairs);
+				}
+				else {
+					for (SerializedToken child : token.getChildren()) {
+						modify(child);
+					}
+				}
+			}
+		});
+	}
 
-	private String processHttpPostRequests(String workflowDefAndState, final String instanceId, final List<String> instanceIdSignals)
+	private String processHttpPostRequests(String workflowDefAndState, final String instanceId, final List<InstanceToken> instanceIdSignals)
 			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException 
 	{
 		return modifyToken(workflowDefAndState, new TokenModifier() {
 			@Override
 			public void modify(SerializedToken token) {
-//				for (SerializedToken child : token.getChildren()) { //FIXME child tokens (see related token id FIXME below)
-//					modify(child);
-//				}
-				
+				for (SerializedToken child : token.getChildren()) { 
+					modify(child);
+					
+					if (!instanceIdSignals.isEmpty()) break;
+				}
+
 				if (token.getVars().containsKey("post")) {
+					String tokenId = (String) token.getVars().get("id");
+					
 					StringTokenizer st = new StringTokenizer((String) token.getVars().get("post"), ",");
 					String url = st.nextToken();
 					Map<String,Object> data = new HashMap<>();
@@ -157,7 +205,7 @@ public class WorkflowController {
 							token.getVars().put(e.getKey(), e.getValue());
 						}
 						
-						instanceIdSignals.add(instanceId);
+						instanceIdSignals.add(new InstanceToken(instanceId, tokenId));
 					} catch (Exception e) {
 						throw new RuntimeException(e);
 					}
@@ -172,11 +220,13 @@ public class WorkflowController {
 		return modifyToken(workflowDefAndState, new TokenModifier() {
 			@Override
 			public void modify(SerializedToken token) {
-//				for (SerializedToken child : token.getChildren()) { //FIXME child tokens (see related token id FIXME below)
-//					modify(child);
-//				}
+				for (SerializedToken child : token.getChildren()) { 
+					modify(child);
+				}
 				
 				if (token.getVars().containsKey("task")) {
+					String tokenId = (String) token.getVars().get("id");
+					
 					List<Map<String,Object>> fields = new LinkedList<>();
 					for (StringTokenizer st = new StringTokenizer((String) token.getVars().get("task"), ","); st.hasMoreTokens(); ) {
 						String fieldName = st.nextToken();
@@ -193,7 +243,7 @@ public class WorkflowController {
 					}
 					
 					Map<String,Object> task = new HashMap<>();
-					task.put("callbackUrl", serverUrlPrefix() + "instances/" + instanceId); //FIXME token id
+					task.put("callbackUrl", serverUrlPrefix() + "tokens/" + instanceId + "/" + tokenId);
 					task.put("fields", fields);
 					
 					if (token.getVars().containsKey("email")) {
@@ -216,6 +266,35 @@ public class WorkflowController {
 				}
 			}
 		});
+	}
+	
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static String modifyToken(String workflowDefAndState, TokenModifier modifier)
+			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException //FIXME somewhat hacky ;-)
+	{
+		Map parsedworkflowDefAndState = om.readValue(workflowDefAndState, Map.class);
+		
+		Map tokenMap = (Map) parsedworkflowDefAndState.get("token");
+		
+		StringWriter sw = new StringWriter();
+		om.writeValue(sw, tokenMap);
+		SerializedToken token = om.readValue(sw.toString(), SerializedToken.class);
+		
+		modifier.modify(token);
+		
+		sw = new StringWriter();
+		om.writeValue(sw, token);
+		tokenMap = om.readValue(sw.toString(), Map.class);
+		
+		parsedworkflowDefAndState.put("token", tokenMap);
+		
+		sw = new StringWriter();
+		om.writeValue(sw, parsedworkflowDefAndState);
+		return sw.toString();
+	}
+	
+	public static interface TokenModifier {
+		public void modify(SerializedToken token);
 	}
 	
 	private String serverUrlPrefix() {
@@ -264,17 +343,6 @@ public class WorkflowController {
 		return dashboardUrlPrefix.toString();
 	}
 	
-	private String addKeyValuePairsToRootToken(final Map<String, String> keyValuePairs, String workflowDefAndState)
-			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException //FIXME somewhat hacky ;-)
-	{
-		return modifyToken(workflowDefAndState, new TokenModifier() {
-			@Override
-			public void modify(SerializedToken token) {
-				token.getVars().putAll(keyValuePairs);
-			}
-		});
-	}
-	
 	private static String post(String url, String accept, String contentType, String data) 
 			throws KeyManagementException, NoSuchAlgorithmException, KeyStoreException, ClientProtocolException, IOException //FIXME avoid deprecated API 
 	{
@@ -302,34 +370,5 @@ public class WorkflowController {
 	    } finally {
 	    	httpClient.close();
 	    }
-	}
-	
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private static String modifyToken(String workflowDefAndState, TokenModifier modifier)
-			throws IOException, JsonParseException, JsonMappingException, JsonGenerationException //FIXME somewhat hacky ;-)
-	{
-		Map parsedworkflowDefAndState = om.readValue(workflowDefAndState, Map.class);
-		
-		Map tokenMap = (Map) parsedworkflowDefAndState.get("token");
-		
-		StringWriter sw = new StringWriter();
-		om.writeValue(sw, tokenMap);
-		SerializedToken token = om.readValue(sw.toString(), SerializedToken.class);
-		
-		modifier.modify(token);
-		
-		sw = new StringWriter();
-		om.writeValue(sw, token);
-		tokenMap = om.readValue(sw.toString(), Map.class);
-		
-		parsedworkflowDefAndState.put("token", tokenMap);
-		
-		sw = new StringWriter();
-		om.writeValue(sw, parsedworkflowDefAndState);
-		return sw.toString();
-	}
-	
-	public static interface TokenModifier {
-		public void modify(SerializedToken token);
 	}
 }

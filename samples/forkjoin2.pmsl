@@ -1,0 +1,82 @@
+workflow forkjoin
+	node start
+		transition to left0
+		transition to right0
+		
+		enter
+			left = ""
+			right = ""
+		end
+	end
+	
+	state left0
+		transition to left1
+		
+		enter
+			post = "https://pmw.furthermore.ch/info"
+		end
+	end
+	
+	state left1
+		transition to left2
+		
+		enter
+			email = mail
+			data = "initial left"
+			task = "message,data"
+		end
+	end
+	
+	state left2
+		transition to join1
+		
+		enter
+			task = "message,data"
+		end
+		
+		leave
+			left = data
+		end
+	end
+	
+	state right0
+		transition to right1
+		
+		enter
+			post = "https://pmw.furthermore.ch/info"
+		end
+	end
+	
+	state right1
+		transition to right2
+		
+		enter
+			email = mail
+			data = "initial right"
+			task = "message,data"
+		end
+	end
+	
+	state right2
+		transition to join1
+		
+		enter
+			task = "message,data"
+		end
+		
+		leave
+			right = data
+		end
+	end
+	
+	join join1
+		transition to done
+	end
+	
+	state done
+		enter
+		  email = mail
+		  task = "left,right"
+		end
+	end
+end

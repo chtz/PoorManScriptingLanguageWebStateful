@@ -28,13 +28,13 @@ public class Application {
 	@RequestMapping("/")
 	@ResponseBody
 	String home() {
-		return "nothing to see here";
+		return "up and running (" + System.currentTimeMillis() + ")";
 	}
 	
 	@RequestMapping(path="/info", method=RequestMethod.POST, consumes="application/json", produces="application/json")
 	@ResponseBody
 	Map<String,Object> info(@RequestBody Map<String,Object> data) {
-		data.put("message", "nothing to see here");
+		data.put("message", home());
 		
 		return data;
 	}

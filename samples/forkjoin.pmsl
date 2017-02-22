@@ -1,0 +1,71 @@
+workflow forkjoin
+	node start
+		transition to left0
+		transition to right0
+		
+		enter
+			left = "pending"
+			right = "pending"
+		end
+	end
+	
+	state left0
+		transition to left1
+		
+		enter
+			post = "http://localhost:7070/info"
+			left = "post"
+		end
+	end
+	
+	state left1
+		transition to left2
+		
+		enter
+			left = "first"
+		end
+	end
+	
+	state left2
+		transition to join1
+		
+		enter
+			left = "second"
+		end
+	end
+	
+	state right0
+		transition to right1
+		
+		enter
+			post = "http://localhost:7070/info"
+			right = "post"
+		end
+	end
+	
+	state right1
+		transition to right2
+		
+		enter
+			right = "first"
+		end
+	end
+	
+	state right2
+		transition to join1
+		
+		enter
+			right = "second"
+		end
+	end
+	
+	join join1
+		transition to done
+	end
+	
+	state done
+		enter
+		  done = "end"
+		end
+	end
+end
