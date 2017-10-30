@@ -92,6 +92,28 @@ public class WorkflowController {
 		}
 	}
 	
+	
+	
+	@RequestMapping(path="/definitionsX/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
+	@ResponseBody
+	String createWorkflowInstanceX(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
+		try {
+			String workflowDefinition = workflowDefinitionDAO.load(definitionId);
+			
+			String workflowDefAndState = post("https://pmsl.furthermore.ch/workflow?autoStart=false", "application/json", "text/plain", workflowDefinition);
+
+			return signal(data, UUID.randomUUID().toString(), null, workflowDefAndState);
+			
+			Map<String,Object> data = new HashMap<>();
+			data.put(key, id FiyxMe);
+			
+			return data;
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
 	@RequestMapping(path="/instances/{workflowId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
 	@ResponseBody
 	String signalWorkflow(@RequestBody Map<String,String> data, @PathVariable("workflowId") String workflowId) {
