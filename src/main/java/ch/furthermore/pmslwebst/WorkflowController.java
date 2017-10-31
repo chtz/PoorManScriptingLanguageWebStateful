@@ -104,10 +104,10 @@ public class WorkflowController {
 
 			String id = signal(data, UUID.randomUUID().toString(), null, workflowDefAndState);
 			
-			Map<String,Object> data = new HashMap<>();
-			data.put("id", id);
+			Map<String,Object> data2 = new HashMap<>();
+			data2.put("id", id);
 			
-			return data;
+			return data2;
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e);
