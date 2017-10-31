@@ -229,6 +229,8 @@ public class WorkflowController {
 						}
 						
 						instanceIdSignals.add(new InstanceToken(instanceId, tokenId));
+					} catch(com.fasterxml.jackson.core.JsonParseException e) {
+						token.getVars().remove("post"); //fixme
 					} catch (Exception e) {
 						throw new RuntimeException(e);
 					}
