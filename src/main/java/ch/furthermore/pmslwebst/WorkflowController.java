@@ -389,6 +389,9 @@ public class WorkflowController {
 	        log.info("HTTP POST '{}' to {} => '{}'", data, url, result); //FIXME debug log
 	        
 			return result;
+	    } catch (java.lang.Exception e) {
+		    log.warn("HTTP POST '{}' to {} => '{}'", data, url, e); //FIXME debug log
+		    throw new nava.lang.RuntimeException(e);
 	    } finally {
 	    	httpClient.close();
 	    }
