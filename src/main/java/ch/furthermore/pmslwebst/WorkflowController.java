@@ -105,7 +105,7 @@ public class WorkflowController {
 			String id = signal(data, UUID.randomUUID().toString(), null, workflowDefAndState);
 			
 			Map<String,Object> data = new HashMap<>();
-			data.put(key, id);
+			data.put("id", id);
 			
 			return data;
 		}
