@@ -224,6 +224,7 @@ public class WorkflowController {
 						token.getVars().remove("post");
 						
 						for (Entry<String, Object> e : result.entrySet()) {
+							if ("id".equals(e.getKey()) continue; //don't mess with token ids
 							token.getVars().put(e.getKey(), e.getValue());
 						}
 						
