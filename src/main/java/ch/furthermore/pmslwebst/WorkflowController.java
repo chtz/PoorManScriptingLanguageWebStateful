@@ -98,7 +98,7 @@ public class WorkflowController {
 	@ResponseBody
 	Map<String,Object> createWorkflowInstanceX(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
 		Map<String,Object> data2 = new HashMap<>();
-		data2.put("instanceId", createWorkflowInstanceX(data, definitionId));
+		data2.put("instanceId", createWorkflowInstance(data, definitionId));
 		return data2;
 	}
 	
