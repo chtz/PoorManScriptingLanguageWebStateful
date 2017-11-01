@@ -97,21 +97,9 @@ public class WorkflowController {
 	@RequestMapping(path="/definitionsX/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
 	@ResponseBody
 	Map<String,Object> createWorkflowInstanceX(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
-		try {
-			String workflowDefinition = workflowDefinitionDAO.load(definitionId);
-			
-			String workflowDefAndState = post("https://pmsl.furthermore.ch/workflow?autoStart=false", "application/json", "text/plain", workflowDefinition);
-
-			String id = signal(data, UUID.randomUUID().toString(), null, workflowDefAndState);
-			
-			Map<String,Object> data2 = new HashMap<>();
-			data2.put("id", id);
-			
-			return data2;
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		Map<String,Object> data2 = new HashMap<>();
+		data2.put("instanceId", createWorkflowInstanceX(data, definitionId));
+		return data2;
 	}
 	
 	@RequestMapping(path="/instances/{workflowId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
@@ -231,6 +219,7 @@ public class WorkflowController {
 						instanceIdSignals.add(new InstanceToken(instanceId, tokenId));
 					} catch(com.fasterxml.jackson.core.JsonParseException e) {
 						token.getVars().remove("post"); //fixme
+						instanceIdSignals.add(new InstanceToken(instanceId, tokenId));
 					} catch (Exception e) {
 						throw new RuntimeException(e);
 					}
