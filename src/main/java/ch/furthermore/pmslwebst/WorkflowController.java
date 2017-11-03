@@ -81,7 +81,7 @@ public class WorkflowController {
 	@ResponseBody
 	Map<String,Object> createWorkflowDefinitionX(@RequestBody String workflowDefinition) {
 		Map<String,Object> data2 = new HashMap<>();
-		data2.put("instanceId", createWorkflowDefinition(workflowDefinition));
+		data2.put("definitionId", createWorkflowDefinition(workflowDefinition));
 		return data2;
 	}
 	
