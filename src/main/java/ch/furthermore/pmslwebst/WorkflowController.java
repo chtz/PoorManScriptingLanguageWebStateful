@@ -77,6 +77,14 @@ public class WorkflowController {
 		}
 	}
 	
+	@RequestMapping(path="/definitionsX", method=RequestMethod.POST, consumes="text/plain", produces="application/json")
+	@ResponseBody
+	Map<String,Object> createWorkflowDefinitionX(@RequestBody String workflowDefinition) {
+		Map<String,Object> data2 = new HashMap<>();
+		data2.put("instanceId", createWorkflowDefinition(workflowDefinition));
+		return data2;
+	}
+	
 	@RequestMapping(path="/definitions/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
 	@ResponseBody
 	String createWorkflowInstance(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
