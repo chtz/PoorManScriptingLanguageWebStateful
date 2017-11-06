@@ -77,6 +77,14 @@ public class WorkflowController {
 		}
 	}
 	
+	@RequestMapping(path="/definitionsX", method=RequestMethod.POST, consumes="text/plain", produces="application/json")
+	@ResponseBody
+	Map<String,Object> createWorkflowDefinitionX(@RequestBody String workflowDefinition) {
+		Map<String,Object> data2 = new HashMap<>();
+		data2.put("definitionId", createWorkflowDefinition(workflowDefinition));
+		return data2;
+	}
+	
 	@RequestMapping(path="/definitions/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
 	@ResponseBody
 	String createWorkflowInstance(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
@@ -90,6 +98,16 @@ public class WorkflowController {
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	
+	
+	@RequestMapping(path="/definitionsX/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
+	@ResponseBody
+	Map<String,Object> createWorkflowInstanceX(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
+		Map<String,Object> data2 = new HashMap<>();
+		data2.put("instanceId", createWorkflowInstance(data, definitionId));
+		return data2;
 	}
 	
 	@RequestMapping(path="/instances/{workflowId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
@@ -202,9 +220,13 @@ public class WorkflowController {
 						token.getVars().remove("post");
 						
 						for (Entry<String, Object> e : result.entrySet()) {
+							if ("id".equals(e.getKey())) continue; //don't mess with token ids
 							token.getVars().put(e.getKey(), e.getValue());
 						}
 						
+						instanceIdSignals.add(new InstanceToken(instanceId, tokenId));
+					} catch(com.fasterxml.jackson.core.JsonParseException e) {
+						token.getVars().remove("post"); //fixme
 						instanceIdSignals.add(new InstanceToken(instanceId, tokenId));
 					} catch (Exception e) {
 						throw new RuntimeException(e);
@@ -367,6 +389,9 @@ public class WorkflowController {
 	        log.info("HTTP POST '{}' to {} => '{}'", data, url, result); //FIXME debug log
 	        
 			return result;
+	    } catch (java.lang.Exception e) {
+		    log.warn("HTTP POST '{}' to {} => '{}'", data, url, e); //FIXME debug log
+		    throw new java.lang.RuntimeException(e);
 	    } finally {
 	    	httpClient.close();
 	    }
