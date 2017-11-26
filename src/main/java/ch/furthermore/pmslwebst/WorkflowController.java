@@ -158,7 +158,7 @@ public class WorkflowController {
 		}
 	}
 	
-	@RequestMapping(path="/tokens/{workflowId}/{instanceId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
+	@RequestMapping(path="/tokensX/{workflowId}/{instanceId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
 	@ResponseBody
 	Map<String,Object> signalTokenX(@RequestBody Map<String,String> data, @PathVariable("workflowId") String workflowId, @PathVariable("instanceId") String instanceId) {
 		Map<String,Object> data2 = new HashMap<>();
