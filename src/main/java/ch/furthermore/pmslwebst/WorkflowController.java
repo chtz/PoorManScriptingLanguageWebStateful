@@ -123,6 +123,22 @@ public class WorkflowController {
 		}
 	}
 	
+	@SuppressWarnings("rawtypes")
+	@RequestMapping(path="/instances/{workflowId}", method=RequestMethod.GET, produces="application/json")
+	@ResponseBody
+	Map lookupWorkflow(@PathVariable("workflowId") String workflowId) {
+		try {
+			String workflowDefAndState = workflowInstanceDAO.load(workflowId);
+
+			Map parsedworkflowDefAndState = om.readValue(workflowDefAndState, Map.class);
+			
+			return (Map) parsedworkflowDefAndState.get("token");
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
 	@RequestMapping(path="/tokens/{workflowId}/{instanceId}", method=RequestMethod.POST, consumes="application/json", produces="text/plain")
 	@ResponseBody
 	String signalToken(@RequestBody Map<String,String> data, @PathVariable("workflowId") String workflowId, @PathVariable("instanceId") String instanceId) {
