@@ -100,8 +100,6 @@ public class WorkflowController {
 		}
 	}
 	
-	
-	
 	@RequestMapping(path="/definitionsX/{definitionId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
 	@ResponseBody
 	Map<String,Object> createWorkflowInstanceX(@RequestBody Map<String,String> data, @PathVariable("definitionId") String definitionId) {
@@ -121,6 +119,14 @@ public class WorkflowController {
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	@RequestMapping(path="/instancesX/{workflowId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
+	@ResponseBody
+	Map<String,Object> signalWorkflowX(@RequestBody Map<String,String> data, @PathVariable("workflowId") String workflowId) {
+		Map<String,Object> data2 = new HashMap<>();
+		data2.put("instanceId", signalWorkflow(data, workflowId));
+		return data2;
 	}
 	
 	@SuppressWarnings("rawtypes")
@@ -150,6 +156,14 @@ public class WorkflowController {
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	@RequestMapping(path="/tokens/{workflowId}/{instanceId}", method=RequestMethod.POST, consumes="application/json", produces="application/json")
+	@ResponseBody
+	Map<String,Object> signalTokenX(@RequestBody Map<String,String> data, @PathVariable("workflowId") String workflowId, @PathVariable("instanceId") String instanceId) {
+		Map<String,Object> data2 = new HashMap<>();
+		data2.put("instanceId", signalToken(data, workflowId, instanceId));
+		return data2;
 	}
 	
 	private String signal(Map<String, String> data, String workflowId, String optionalTokenId, String workflowDefAndState)
